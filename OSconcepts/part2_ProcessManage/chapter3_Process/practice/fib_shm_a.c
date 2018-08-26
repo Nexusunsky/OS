@@ -57,7 +57,6 @@ int main(void)
         /* now have the child generate the Fibonacci sequence .... */
         shared_memory->fib_sequence[0] = 0;
         shared_memory->fib_sequence[1] = 1;
-
         for (i = 2; i < shared_memory->sequence_size; i++)
             shared_memory->fib_sequence[i] = shared_memory->fib_sequence[i-1] + shared_memory->fib_sequence[i-2];
             /* now detach the shared memory segment */
