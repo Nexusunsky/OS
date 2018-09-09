@@ -231,12 +231,105 @@ signal(semaphore *S) {
     必须承认 目前对wait()和signal()操作的定义 也没有完全取消忙等，而是取消了 应用程序 进入临界区的 忙等。
 
 
-    6，死锁与即饥饿
+    6，死锁与饥饿
         死锁（deadlocked）:两个或多个进程 无限等待 一个事件，而该 事件 只能由这些 等待进程 之一来产生。
         该被等待的事件 指 signal()操作的发生。
 
         无限期阻塞（indefinite blocking） 或 饥饿(starvation)，即进程在 信号量内 无限期 等待，
         如果对与信号量 相关的链表按LIFO顺序来增加和移动进程，可能发生 无限期阻塞。
+
+    7，经典同步问题
+        采用信号量 作为同步问题的解答
+
+        a，有限缓冲问题：
+            通常用来说明 同步原语 的能力。
+            该方案的 通用解决结构：
+                假定缓冲池有 n个缓冲项，每个缓冲项能 存一个数据项。信号量mutex 提供了 对缓冲池访问的互斥要求，并初始化为1。
+                信号量 empty 和 full 分别用来表示 空缓冲项 和 满缓冲项 个数，empty初试化为n，full初始化为0；
+'''
+do {                                |do {
+    ...                             |    wait(full);
+    //produce an item in nextp      |    wait(numtex);
+    ...                             |    ...
+    wait(empty);                    |    //remove an item from buffer to nextc
+                                    |
+    wait(mutex);                    |    ...
+    ...                             |    signal(mutex);
+    //add nextp to buffer           |    signal(empty);
+    ...                             |    ...
+    signal(mutex);                  |    //consume the item in nextc
+                                    |
+    signal(full);                   |    ...
+} while(TRUE);                      | } while(TRUE);
+'''
+
+        b，读者--写者问题
+            读者--写者问题：
+                1，两个读者同时访问共享数据，不会产生不利的结果。
+                2，如果一个写者和其他线程（即可能是读者也可能是写者）同时访问共享对象，很可能混乱。
+                要求写者对共享数据库有排他访问。这一同步问题称为读者--写者问题；
+
+            两个变种：都与优先级有关。
+            第一 读者-写者问题：要求没有读者需要保持等待除非已有一个写者已获得允许访问共享数据。
+            第二 读者-写者问题：一旦写者就绪，那么读写者会尽可能地执行写操作。
+
+            对于第一 读者-写者问题：读者进程共享一下数据：
+                semaphore mutex,wrt;
+                int readcount;
+            1，信号量 mutex 和 wrt 初始化为1，readcount初始化为0；
+            2，信号量wrt为 读者和写者进程 所共用。
+            3，mutex确保在 更新变量readcount时 的互斥。变量readcount 用来 跟踪有多少进程 正在读对象。
+            4，信号量wrt 供写者作为 互斥信号量。它为 第一个进入 临界区 和 最后一个 离开 临界区的读者所使用。
+'''
+//写者进程结构                  | //读者进程结构
+ do {                         | do {
+    wait(wrt);                |    wait(mutex);// 对于操作（读或写）的控制锁
+    ...                       |    readcount++;
+    //writing is performed    |    if(readcount == 1) // 控制实际的写者的个数
+    ...                       |         wait(wrt);
+    signal(wrt);              |    signal(mutex);
+ } while(TRUE);               |    ...
+                              |    //reading is performed
+                              |    ...
+                              |    wait(mutex);
+                              |    readcount--;
+                              |     if(readconunt == 0)
+                              |         signal(wrt);
+                              |    signal(mutex);
+                              | } while(TRUE);
+'''
+如果有 一个进程 在 临界区 内，且 n个进程 处于等待，那么一个读者在wrt上等待，而 n-1个在mutex上等待。
+而且，当一个写者 执行signal(wrt)时，可以重新启动等待读者或写者的执行。
+在获取 读写锁 时，指定锁的模式：读访问 或 写模式。
+            使用场景：
+                1，当可以区分那些进程只需要读取共享数据而哪些进程只需要写共享数据。
+                2，当 读者进程 比 写者进程 多时。读写锁的 建立开销 通常比信号量或互斥锁大，而这一开销可以通过允许多个读者增加并发度来进行弥补。
+
+
+      c，哲学家进餐问题、
+           哲学家同步问题：
+               典型的同步问题，是一个并发控制问题，需要在 多个 进程之间 分配 多个资源 且不会出现 死锁和饥饿 的典型例子。
+
+           简单解决方案：
+                每只筷子 都用一个 信号量 来表示，一个哲学家通过执行wait()操作试图获取相应的筷子它会通过执行signal释放相应的筷子
+
+'''
+//哲学家i进程结构
+ do {
+    wait(chopstick[i]);
+    wait(chopstick[(i+1)]%5);
+    ...
+    //eat
+    ...
+    signal(chopstick[i]);
+    signal(chopstick[(i+1)]%5);
+    ...
+    //think
+    ...
+ } while(TRUE);
+'''
+            总结：本方案确实确保了 没有 两个科学家 同时使用 同一只筷子，但是 却可能导致死锁。
+
 
 
 
