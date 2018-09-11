@@ -358,6 +358,69 @@ do {                                |do {
             操作 x.wait(); 意味着调用操作的进程挂起，
             直到另一进程调用 x.signal(); 操作signal 重新启动一个悬挂的进程。
 
+        案例：哲学家进程问题的管程解决方案
+            解决方案要求 一个哲学家在两只筷子均可用时才拿起筷子，
+            哲学家i 只有在 其两个邻居 不在进餐时 才能将变量state[i]设置为eating：
+                state[(i+4)%5] != eating
+                state[(i+1)%5] != eating
+            且声明：
+                condition self[5];
+            筷子分布由管程dp来控制，哲学家i必须按照如下顺序调用：
+            dp.pickup(i);
+                ...
+                eat
+                ...
+            dp.putdown(i);
 
+
+        实现：
+            基于信号量的管程实现：
+            对每个管程，都有一个信号量mutex（初始值为 1）
+            进程 在 进入管程 之前必须执行wait(mutex)，离开管程 之前必须执行signal(mutex);
+
+            实现管程内互斥：
+                信号进程必须等待，直到 重新启动 的进程 离考 或 等待，
+                引入 信号量next（初始化为0）以供信号进程挂起自己，
+                还提供了 整型变量next_count，以对 挂起在next上的进程数量 进行计数
+'''
+                wait(mutex);
+                    ...
+                    子程序F
+                    ...
+                if (next_count > 0)
+                    signal(next);
+                else
+                    signal(mutex);
+'''
+            实现条件变量：
+                对每个 条件变量x (condition)，引入 信号量x_sem 和 整数变量x_count 两者均初始化为0，
+            操作x.wait()实现:
+'''
+                x_count++;
+                if (next_count > 0)
+                    signal(next);
+                else
+                    signal();
+                wait(x_sem);
+                x_count--;
+
+'''
+            操作x.signal()实现:
+'''
+                if (c_count > 0) {
+                    next_count++;
+                    signal(x_sem);
+                    wait(next);
+                    next_count--;
+                }
+'''
+        问题：
+            管程内的进程重启：
+                如果多个进程悬挂在 条件x上，且某个 进程执行了操作x.signal()，那么 如何决定 应重新运行哪个 挂起进程？
+
+            方案：
+                使用条件构造：
+                    wait(c)，其中c是整数表达式，需要执行操作wait时 进行计算，
+                    c，称为 优先值，会与悬挂进程的名称一起存储，当执行x.signal()时，与 最小优先值 相关联的进程 会被重新启动。
 
 
